@@ -3,6 +3,7 @@ import { AlertList } from "../components/AlertList.tsx";
 import { CandleChart } from "../components/CandleChart.tsx";
 import { DigestView } from "../components/DigestView.tsx";
 import { InstallCard } from "../components/InstallCard.tsx";
+import { OutlookCard } from "../components/OutlookCard.tsx";
 import { PriceHero } from "../components/PriceHero.tsx";
 import { SignalCard } from "../components/SignalCard.tsx";
 import type { PriceAlert } from "../data/alerts.ts";
@@ -11,12 +12,14 @@ import { cnMonthDay } from "../lib/format.ts";
 import { REGIME_LABEL, SIDE_LABEL, STRATEGY_LABEL } from "../strategy/params.ts";
 import { signalHeadline } from "../strategy/present.ts";
 import type { Digest } from "../strategy/digest.ts";
+import type { Outlook } from "../strategy/outlook.ts";
 import type { Analysis } from "../strategy/types.ts";
 import type { MarketSnapshot } from "../data/types.ts";
 
 export function Dashboard({
   snapshot,
   analysis,
+  outlook,
   digest,
   alerts,
   onCreate,
@@ -27,6 +30,7 @@ export function Dashboard({
 }: {
   snapshot: MarketSnapshot;
   analysis: Analysis;
+  outlook: Outlook;
   digest: Digest;
   alerts: PriceAlert[];
   onCreate: (alert: PriceAlert) => void;
@@ -40,6 +44,7 @@ export function Dashboard({
   return (
     <div className="space-y-4">
       <PriceHero quote={snapshot.quote} />
+      <OutlookCard outlook={outlook} />
       <section className="panel flex items-center justify-between gap-3">
         <div>
           <p className="kicker">市场状态</p>

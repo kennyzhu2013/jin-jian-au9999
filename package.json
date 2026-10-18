@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "predev": "tsx scripts/write-sample-feed.ts",
-    "prebuild": "tsx scripts/write-sample-feed.ts",
+    "predev": "tsx scripts/write-sample-feed.ts && tsx scripts/write-sample-news.ts",
+    "prebuild": "tsx scripts/write-sample-feed.ts && tsx scripts/write-sample-news.ts",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",

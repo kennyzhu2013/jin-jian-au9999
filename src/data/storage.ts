@@ -9,13 +9,25 @@ const HINT_KEY = "jinjian.installHint.v1";
 export type Settings = {
   source: "demo" | "http";
   endpoint: string;
+  newsSource: "demo" | "http";
+  newsEndpoint: string;
 };
 
 export const DEFAULT_ENDPOINT = "/sample-feed.json";
+export const DEFAULT_NEWS_ENDPOINT = "/sample-news.json";
+
+function envNewsEndpoint(): string {
+  const env = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env;
+  const configured = env?.VITE_NEWS_API_URL;
+  if (typeof configured === "string" && configured.trim()) return configured.trim();
+  return DEFAULT_NEWS_ENDPOINT;
+}
 
 export const DEFAULT_SETTINGS: Settings = {
   source: "demo",
   endpoint: DEFAULT_ENDPOINT,
+  newsSource: "demo",
+  newsEndpoint: envNewsEndpoint(),
 };
 
 const SEED_ALERTS: PriceAlert[] = [
@@ -51,6 +63,11 @@ export function loadSettings(): Settings {
   return {
     source: stored.source === "http" ? "http" : "demo",
     endpoint: typeof stored.endpoint === "string" && stored.endpoint.trim() ? stored.endpoint : DEFAULT_ENDPOINT,
+    newsSource: stored.newsSource === "http" ? "http" : "demo",
+    newsEndpoint:
+      typeof stored.newsEndpoint === "string" && stored.newsEndpoint.trim()
+        ? stored.newsEndpoint
+        : envNewsEndpoint(),
   };
 }
 

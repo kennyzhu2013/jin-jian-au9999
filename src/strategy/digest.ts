@@ -2,6 +2,7 @@ import type { MarketSnapshot } from "../data/types.ts";
 import { cny, cnMonthDay, kg, signedNumber, signedPct, weekdayLabel } from "../lib/format.ts";
 import { sessionKind, sessionLabel, shanghaiDate } from "../lib/session.ts";
 import { STRATEGY_LABEL } from "./params.ts";
+import type { Outlook } from "./outlook.ts";
 import type { Analysis } from "./types.ts";
 import { alertDistance, type PriceAlert } from "../data/alerts.ts";
 
@@ -20,6 +21,7 @@ export function buildDigest(
   snapshot: MarketSnapshot,
   analysis: Analysis,
   alerts: PriceAlert[],
+  outlook: Outlook,
   now = new Date(),
 ): Digest {
   const last = snapshot.bars.at(-1);
@@ -90,6 +92,10 @@ export function buildDigest(
       {
         heading: barIsToday ? "今天这根线" : "最近一根日线",
         body: `${dayWord}收于 ${cny(close)} 元/克，振幅 ${cny(snapshot.quote.high - snapshot.quote.low)}。${analysis.today.reason}`,
+      },
+      {
+        heading: "综合建议",
+        body: `短线${outlook.short.label}，把握${outlook.short.convictionLabel}；中线${outlook.medium.label}，把握${outlook.medium.convictionLabel}。${outlook.reasons.map((reason) => reason.text).join("")}${outlook.newsNote}${outlook.disclaimer}`,
       },
       {
         heading: "策略怎么分工",

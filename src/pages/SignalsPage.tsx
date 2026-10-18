@@ -1,5 +1,6 @@
 import { cny, cnMonthDay, unsignedPct } from "../lib/format.ts";
 import { PARAMS, REGIME_LABEL, SIDE_LABEL, STRATEGY_LABEL } from "../strategy/params.ts";
+import type { Outlook } from "../strategy/outlook.ts";
 import type { Analysis } from "../strategy/types.ts";
 import type { Signal } from "../strategy/types.ts";
 
@@ -19,7 +20,7 @@ function Reading({ title, signal, active }: { title: string; signal: Signal; act
   );
 }
 
-export function SignalsPage({ analysis }: { analysis: Analysis }) {
+export function SignalsPage({ analysis, outlook }: { analysis: Analysis; outlook: Outlook }) {
   const history = [...analysis.history].reverse().slice(0, 8);
   const marker = Math.min(analysis.regime.efficiency, 1) * 100;
 
@@ -29,9 +30,20 @@ export function SignalsPage({ analysis }: { analysis: Analysis }) {
         <p className="kicker">状态切换</p>
         <h1 className="font-price mt-2 text-3xl">趋势或震荡，只让一边做主</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          近 {PARAMS.erLookback} 日效率比看方向干不干净。干净就跟踪均线和突破，来回抽打就在区间边缘高抛低吸。
+          近 {PARAMS.erLookback} 日效率比看方向干不干净。干净就跟踪均线和突破，来回抽打就在区间边缘高抛低吸。综合建议把这个状态和消息偏向合在一起，不改下面两套规则。
         </p>
       </header>
+      <section className="panel">
+        <p className="kicker">合在建议里</p>
+        <p className="mt-2 text-lg">
+          短线 {outlook.short.label}
+          <span className="mx-2 text-muted-foreground">·</span>
+          中线 {outlook.medium.label}
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          短线更看眼下的状态和区间位置，中线更看均线背景和美联储、美元、地缘、国内购金这些消息。
+        </p>
+      </section>
       <section className="panel">
         <div className="flex items-end justify-between gap-3">
           <div>

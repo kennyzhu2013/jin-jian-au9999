@@ -1,3 +1,8 @@
+interface ImportMetaEnv {
+  readonly VITE_NEWS_API_URL?: string;
+  readonly VITE_NEWS_API_KEY?: string;
+}
+
 declare module "virtual:pwa-register" {
   export function registerSW(options?: {
     immediate?: boolean;
