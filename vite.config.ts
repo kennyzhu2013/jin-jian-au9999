@@ -54,6 +54,7 @@ export default defineConfig({
         "icons/icon-maskable-512.png",
         "icons/apple-touch-icon.png",
         "sample-feed.json",
+        "sample-news.json",
       ],
       manifest,
       workbox: {

@@ -49,6 +49,28 @@ npm run signals
 
 装好之后它会以独立窗口打开，不带浏览器地址栏。第一次成功打开后，页面外壳会被缓存。之后即使断网，也能打开上次的界面，并显示保存在本机的最近价格。演示行情本身就在应用里，不依赖网络。
 
+安装到主屏幕需要 HTTPS。本机 `http://127.0.0.1` 可以，局域网 IP 不行。放到 Vercel 之后用手机打开那个 `https://` 地址即可。
+
+## 部署到 Vercel
+
+这是 Vite 静态站点，构建目录是 `dist`。页面用哈希路由（`#/market`、`#/signals`、`#/digest`、`#/alerts`），不依赖服务器。根目录的 `vercel.json` 仍把找不到的路径回退到 `index.html`，并让 `sw.js` 每次重新验证，手机才能拿到新版本。
+
+Hobby 计划可以不把 Git 仓库连到 Vercel。在项目根目录登录一次后，让 Vercel 自己构建：
+
+```bash
+npm install
+npx vercel deploy --prod --yes
+```
+
+这会读取根目录的 `vercel.json`：框架 Vite，构建命令 `npm run build`，输出目录 `dist`。
+
+也可以只上传已经打好的静态文件。先 `npm run build`，再把 `dist` 里的文件拖进 Vercel 控制台。这种上传不要再执行构建命令。页面是哈希路由，没有这些文件时直接打开站点根路径也能用。
+
+部署完成后用手机浏览器打开 `https://<项目>.vercel.app`：
+
+- iPhone：Safari，分享，添加到主屏幕，名称是「金鉴」。
+- Android：Chrome，菜单里的「安装应用」或「添加到主屏幕」。
+
 ## 演示数据
 
 默认是演示模式，不需要密钥。
