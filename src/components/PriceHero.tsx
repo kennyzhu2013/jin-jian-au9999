@@ -15,7 +15,7 @@ export function PriceHero({ quote, now }: { quote: Quote; now?: Date }) {
     <section className="panel relative overflow-hidden" aria-live="polite">
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold to-transparent" />
       <div className="flex items-start justify-between gap-3">
-        <p className="kicker">Au9999 · 上金所 Au99.99</p>
+        <p className="kicker">{quote.sourceLabel === "浙商积存金(京东)" ? "浙商积存金(京东) · 非官方接口" : "Au9999 · 上金所 Au99.99"}</p>
         <p className="rounded-full border border-white/10 px-2 py-1 text-[11px] text-gold-soft">{session}</p>
       </div>
       <div className="mt-3 flex items-end gap-2">

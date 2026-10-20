@@ -136,6 +136,7 @@ export function normalizeFeed(payload: unknown, sourceLabel: string): MarketSnap
     quote: {
       ...aligned,
       time: quote.time || aligned.time,
+      ...(sourceLabel === JD_QUOTE_LABEL ? { prevClose: quote.prevClose } : {}),
       sourceLabel,
     },
     fetchedAt: new Date().toISOString(),
@@ -143,10 +144,30 @@ export function normalizeFeed(payload: unknown, sourceLabel: string): MarketSnap
   };
 }
 
+export const JD_QUOTE_LABEL = "浙商积存金(京东)";
+
+/** 浙商积存金(京东)实时价，经同源 /api/jd-quote 转发（JD 接口不支持浏览器跨域）。非官方接口，失败返回 null。 */
+async function loadJdQuote(): Promise<{ price: number; time: string; prevClose: number | null } | null> {
+  try {
+    const response = await fetch("/api/jd-quote", { cache: "no-store" });
+    if (!response.ok) return null;
+    const data = asRecord(asRecord(asRecord(await response.json())?.resultData)?.datas);
+    const price = asNumber(data?.price);
+    if (!data || price == null || price <= 0) return null;
+    const ms = asNumber(data.time);
+    const d = new Date((ms ?? Date.now()) + 8 * 3600 * 1000);
+    const time = d.toISOString().replace(/\.\d{3}Z$/, "+08:00");
+    return { price, time, prevClose: asNumber(data.yesterdayPrice) };
+  } catch {
+    return null;
+  }
+}
+
 export async function loadMarket(settings: Settings): Promise<MarketSnapshot> {
   if (settings.source === "demo") return demoMarket();
   const problem = endpointError(settings.endpoint);
   if (problem) throw new Error(problem);
+  const jdPromise = loadJdQuote();
   const response = await fetch(settings.endpoint.trim(), { cache: "no-store" });
   if (!response.ok) throw new Error(`接口返回 ${response.status}，没能更新行情。`);
   const text = await response.text();
@@ -155,6 +176,13 @@ export async function loadMarket(settings: Settings): Promise<MarketSnapshot> {
     payload = JSON.parse(text);
   } catch {
     throw new Error("接口没有返回 JSON。请确认这个地址直接给出行情数据。");
+  }
+  const jd = await jdPromise;
+  const record = asRecord(payload);
+  if (jd && record) {
+    const base = asRecord(record.quote) ?? {};
+    record.quote = { ...base, price: jd.price, time: jd.time, ...(jd.prevClose != null ? { prevClose: jd.prevClose } : {}) };
+    return normalizeFeed(record, JD_QUOTE_LABEL);
   }
   return normalizeFeed(payload, "自定义接口");
 }
