@@ -15,6 +15,7 @@ import { Dashboard } from "./pages/Dashboard.tsx";
 import { DigestPage } from "./pages/DigestPage.tsx";
 import { SignalsPage } from "./pages/SignalsPage.tsx";
 import { loadSettings, saveSettings, type Settings } from "./data/storage.ts";
+import { customQuoteConnected } from "./lib/quoteCopy.ts";
 import { analyze } from "./strategy/engine.ts";
 import { buildDigest } from "./strategy/digest.ts";
 import { buildOutlook } from "./strategy/outlook.ts";
@@ -62,6 +63,7 @@ export default function App() {
     saveSettings(next);
   };
 
+  const customQuote = customQuoteConnected(settings, snapshot);
   const modeLabel = snapshot.mode === "http" ? "接口" : snapshot.mode === "cached" ? "缓存" : "演示";
 
   return (
@@ -104,6 +106,7 @@ export default function App() {
                 onReload={refresh}
                 loading={refreshing}
                 workerReady={install.workerReady}
+                snapshot={snapshot}
               />
             </div>
           </div>
@@ -122,6 +125,7 @@ export default function App() {
               installed={install.installed}
               canPrompt={install.canPrompt}
               onPrompt={() => void install.promptInstall()}
+              customQuote={customQuote}
             />
           )}
           {route === "signals" && <SignalsPage analysis={analysis} outlook={outlook} />}

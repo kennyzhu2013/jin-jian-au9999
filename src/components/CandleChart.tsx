@@ -2,12 +2,21 @@ import { useMemo, useState } from "react";
 import type { PriceAlert } from "../data/alerts.ts";
 import type { Bar } from "../data/types.ts";
 import { cny, cnMonthDay, sourceLabel } from "../lib/format.ts";
+import { CUSTOM_CHART_NOTE, DEMO_CHART_NOTE } from "../lib/quoteCopy.ts";
 import { sma } from "../strategy/indicators.ts";
 import { PARAMS } from "../strategy/params.ts";
 
 const VIEW = 48;
 
-export function CandleChart({ bars, alerts }: { bars: Bar[]; alerts: PriceAlert[] }) {
+export function CandleChart({
+  bars,
+  alerts,
+  customQuote = false,
+}: {
+  bars: Bar[];
+  alerts: PriceAlert[];
+  customQuote?: boolean;
+}) {
   const [picked, setPicked] = useState<number | null>(null);
   const selected = picked != null && picked < bars.length ? picked : Math.max(bars.length - 1, 0);
 
@@ -143,13 +152,13 @@ export function CandleChart({ bars, alerts }: { bars: Bar[]; alerts: PriceAlert[
         <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">
           <span className="text-foreground">{cnMonthDay(active.date)}</span>
           <span className="mx-1">·</span>
-          {sourceLabel(active.source)}
+          {sourceLabel(active.source, customQuote)}
           <span className="mx-1">·</span>
           开 {cny(active.open)} 高 {cny(active.high)} 低 {cny(active.low)} 收 {cny(active.close)}
         </p>
       )}
       <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-        点一根 K 线看当日价。颜色较淡的是演示补齐，实色是公开摘录。买卖虚线是你设的价位。
+        {customQuote ? CUSTOM_CHART_NOTE : DEMO_CHART_NOTE}
       </p>
     </section>
   );

@@ -14,7 +14,8 @@ export type Settings = {
 };
 
 export const DEFAULT_ENDPOINT = "/sample-feed.json";
-export const DEFAULT_NEWS_ENDPOINT = "/sample-news.json";
+/** 未填写、也未设置 VITE_NEWS_API_URL 时使用的生产消息代理。不要把上游密钥写进前端。 */
+export const DEFAULT_NEWS_ENDPOINT = "https://jinjian-quote-proxy.vercel.app/api/news";
 
 function envNewsEndpoint(): string {
   const env = (import.meta as ImportMeta & { env?: Record<string, string | undefined> }).env;
