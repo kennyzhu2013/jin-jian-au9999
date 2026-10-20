@@ -9,6 +9,7 @@ import { SignalCard } from "../components/SignalCard.tsx";
 import type { PriceAlert } from "../data/alerts.ts";
 import { PUBLISHED_RANGE } from "../data/demoSeries.ts";
 import { cnMonthDay } from "../lib/format.ts";
+import { customQuoteCaption } from "../lib/quoteCopy.ts";
 import { REGIME_LABEL, SIDE_LABEL, STRATEGY_LABEL } from "../strategy/params.ts";
 import { signalHeadline } from "../strategy/present.ts";
 import type { Digest } from "../strategy/digest.ts";
@@ -27,6 +28,7 @@ export function Dashboard({
   installed,
   canPrompt,
   onPrompt,
+  customQuote,
 }: {
   snapshot: MarketSnapshot;
   analysis: Analysis;
@@ -38,6 +40,7 @@ export function Dashboard({
   installed: boolean;
   canPrompt: boolean;
   onPrompt: () => void;
+  customQuote: boolean;
 }) {
   const headline = signalHeadline(analysis);
 
@@ -59,9 +62,11 @@ export function Dashboard({
       </section>
       <p className="px-1 text-[12px] leading-relaxed text-muted-foreground">{analysis.regime.reason}</p>
       <SignalCard eyebrow={headline.eyebrow} signal={headline.signal} note={headline.note} />
-      <CandleChart bars={snapshot.bars} alerts={alerts} />
+      <CandleChart bars={snapshot.bars} alerts={alerts} customQuote={customQuote} />
       <p className="px-1 text-[11px] leading-relaxed text-muted-foreground">
-        {cnMonthDay(PUBLISHED_RANGE.start)} 至 {cnMonthDay(PUBLISHED_RANGE.end)} 来自公开日线摘录，更早的 K 线为演示补齐。之后的交易日等接口接入，不在这里编造。
+        {customQuote
+          ? customQuoteCaption(snapshot)
+          : `${cnMonthDay(PUBLISHED_RANGE.start)} 至 ${cnMonthDay(PUBLISHED_RANGE.end)} 来自公开日线摘录，更早的 K 线为演示补齐。之后的交易日等接口接入，不在这里编造。`}
       </p>
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">

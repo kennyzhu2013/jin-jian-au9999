@@ -150,7 +150,7 @@ export default {
 
 默认是演示消息，不需要密钥。语料写在 `src/data/news.ts`，日期对齐到 `2026-10-09`，覆盖美联储、美元、地缘、中国购金与金饰、上金所成交。同一份数据在构建或启动开发服务器时写入 [`public/sample-news.json`](public/sample-news.json)。
 
-设置里切到「消息接口」，地址保持 `/sample-news.json`，就会走真的请求路径。自定义 JSON 可以是 `{ "items": [ ... ] }`，也可以直接是数组。每条至少要有 `title` 和 `publishedAt`。可选字段：
+设置里切到「消息接口」后，地址默认是生产消息代理 `https://jinjian-quote-proxy.vercel.app/api/news`，不需要再手填，也可以改成自己的 JSON。不设置 `VITE_NEWS_API_URL` 时用的就是这个地址。站内 [`public/sample-news.json`](public/sample-news.json) 仍是离线演示语料。自定义 JSON 可以是 `{ "items": [ ... ] }`，也可以直接是数组。每条至少要有 `title` 和 `publishedAt`。可选字段：
 
 | 字段 | 含义 |
 | --- | --- |
@@ -181,7 +181,7 @@ export default {
 
 环境变量（见 [`.env.example`](.env.example)）：
 
-- `VITE_NEWS_API_URL`：消息接口的默认地址。不填则是 `/sample-news.json`。
+- `VITE_NEWS_API_URL`：消息接口的默认地址。不填则是 `https://jinjian-quote-proxy.vercel.app/api/news`。设置页里的地址会覆盖它。
 - `VITE_NEWS_API_KEY`：可选。填写后，请求消息接口会带 `Authorization: Bearer <密钥>`。演示模式不使用它。密钥放在本地 `.env`，不要提交进仓库。
 
 消息接口失败时，会留下上次成功的标题；如果还没有缓存，就回到演示语料，并在页面顶部说明。

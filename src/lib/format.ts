@@ -60,7 +60,8 @@ export function clockLabel(iso: string): string {
   }).format(time);
 }
 
-export function sourceLabel(source: "published" | "synthetic" | "live"): string {
+export function sourceLabel(source: "published" | "synthetic" | "live", customQuote = false): string {
+  if (customQuote) return "接口日线";
   if (source === "published") return "公开摘录";
   if (source === "live") return "接口";
   return "演示补齐";

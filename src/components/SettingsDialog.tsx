@@ -12,8 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PUBLISHED_RANGE } from "../data/demoSeries.ts";
 import { endpointError } from "../data/feed.ts";
+import { DEFAULT_NEWS_ENDPOINT, type Settings as FeedSettings } from "../data/storage.ts";
+import type { MarketSnapshot } from "../data/types.ts";
 import { cnMonthDay } from "../lib/format.ts";
-import type { Settings as FeedSettings } from "../data/storage.ts";
+import { customQuoteCaption, customQuoteConfigured, customQuoteConnected } from "../lib/quoteCopy.ts";
 
 export function SettingsDialog({
   settings,
@@ -21,15 +23,19 @@ export function SettingsDialog({
   onReload,
   loading,
   workerReady,
+  snapshot,
 }: {
   settings: FeedSettings;
   onChange: (settings: FeedSettings) => void;
   onReload: () => void;
   loading: boolean;
   workerReady: boolean;
+  snapshot: MarketSnapshot;
 }) {
   const problem = settings.source === "http" ? endpointError(settings.endpoint) : null;
   const newsProblem = settings.newsSource === "http" ? endpointError(settings.newsEndpoint) : null;
+  const liveQuote = customQuoteConnected(settings, snapshot);
+  const customEndpoint = customQuoteConfigured(settings);
 
   return (
     <Dialog>
@@ -110,7 +116,7 @@ export function SettingsDialog({
           />
           <p className="text-[12px] leading-relaxed text-muted-foreground">
             {settings.newsSource === "demo"
-              ? "演示消息对齐到最近一根日线，不会请求这个地址。切到消息接口后，默认读取 /sample-news.json。"
+              ? `演示消息对齐到最近一根日线，不会请求这个地址。切到消息接口后，默认请求 ${DEFAULT_NEWS_ENDPOINT}，也可以改成自己的地址。`
               : "请求这个地址。若构建时设置了 VITE_NEWS_API_KEY，会带上 Bearer 令牌。"}
           </p>
           {newsProblem && <p className="text-sm text-up">{newsProblem}</p>}
@@ -125,8 +131,11 @@ export function SettingsDialog({
         </Button>
         <div className="space-y-2 rounded-xl bg-black/25 p-3 text-[12px] leading-relaxed text-muted-foreground">
           <p>
-            公开摘录覆盖 {cnMonthDay(PUBLISHED_RANGE.start)} 至 {cnMonthDay(PUBLISHED_RANGE.end)}。更早的日子是固定种子补齐的，图上颜色更淡。
-            {cnMonthDay(PUBLISHED_RANGE.end)} 之后没有编造成交。
+            {liveQuote
+              ? customQuoteCaption(snapshot)
+              : customEndpoint
+                ? "已选择自定义行情接口。日线与实时价以该地址返回的数据为准。"
+                : `公开摘录覆盖 ${cnMonthDay(PUBLISHED_RANGE.start)} 至 ${cnMonthDay(PUBLISHED_RANGE.end)}。更早的日子是固定种子补齐的，图上颜色更淡。${cnMonthDay(PUBLISHED_RANGE.end)} 之后没有编造成交。`}
           </p>
           <p>离线壳：{workerReady ? "服务工作线程已就绪，上次打开过的页面可以离线再开。" : "正在注册服务工作线程。"}</p>
           <p>最近一次成功的行情和消息都会记在这台设备里。接口失败或断网时，仪表仍显示上次的价格；消息没有缓存时回到演示语料。</p>
