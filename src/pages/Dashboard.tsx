@@ -66,7 +66,7 @@ export function Dashboard({
       <p className="px-1 text-[11px] leading-relaxed text-muted-foreground">
         {customQuote
           ? customQuoteCaption(snapshot)
-          : `${cnMonthDay(PUBLISHED_RANGE.start)} 至 ${cnMonthDay(PUBLISHED_RANGE.end)} 来自公开日线摘录，更早的 K 线为演示补齐。之后的交易日等接口接入，不在这里编造。`}
+          : `${cnMonthDay(PUBLISHED_RANGE.start)} 至 ${cnMonthDay(PUBLISHED_RANGE.end)} 为积存金口径日线样本（每日开高低收），更早为演示补齐。实时价接上后会落到当日 K 线。`}
       </p>
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">

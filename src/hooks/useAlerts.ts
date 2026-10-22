@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { alertState, type PriceAlert } from "../data/alerts.ts";
-import { loadAlerts, saveAlerts } from "../data/storage.ts";
+import { fetchRemoteAlerts, loadAlerts, pushRemoteAlerts, saveAlerts } from "../data/storage.ts";
 
 const NOTIFIED_KEY = "jinjian.notified.v1";
 
@@ -19,6 +19,7 @@ export function useAlerts(price: number) {
   const write = useCallback((next: PriceAlert[]) => {
     setAlerts(next);
     saveAlerts(next);
+    void pushRemoteAlerts(next);
   }, []);
 
   const add = useCallback(
@@ -34,6 +35,20 @@ export function useAlerts(price: number) {
     },
     [write],
   );
+
+  // 页面打开：从 CloudBase 拉上次保存的我的价位，覆盖本地缓存
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const remote = await fetchRemoteAlerts();
+      if (cancelled || remote == null) return;
+      saveAlerts(remote);
+      setAlerts(remote);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
