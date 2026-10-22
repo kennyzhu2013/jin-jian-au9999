@@ -1,6 +1,7 @@
 import { demoMarket, quoteFromBars } from "./demoSeries.ts";
 import type { Bar, BarSource, MarketSnapshot, Quote } from "./types.ts";
 import type { Settings } from "./storage.ts";
+import { apiUrl } from "./storage.ts";
 import { round2 } from "../lib/format.ts";
 
 type Loose = Record<string, unknown>;
@@ -91,24 +92,30 @@ function readQuote(payload: Loose, bars: Bar[]): Quote | null {
   };
 }
 
+/** 用实时价落成/更新「当日」日 K（开高低收），不把旧品种 OHLC 粘到新一天。 */
 function applyQuote(bars: Bar[], quote: Quote): Bar[] {
   const date = asDate(quote.time) ?? bars.at(-1)?.date;
   if (!date) return bars;
   const next = bars.map((bar) => ({ ...bar }));
   const last = next.at(-1);
+  const open = round2(quote.open);
+  const high = round2(Math.max(quote.high, quote.price, open));
+  const low = round2(Math.min(quote.low, quote.price, open));
   if (last && last.date === date) {
     last.close = quote.price;
-    last.high = round2(Math.max(last.high, quote.high, quote.price));
-    last.low = round2(Math.min(last.low, quote.low, quote.price));
-    last.open = quote.open;
+    last.high = round2(Math.max(last.high, high, quote.price));
+    last.low = round2(Math.min(last.low, low, quote.price));
+    // 当日已有开盘则保留；仅在缺开盘时用 quote.open
+    if (!(last.open > 0)) last.open = open;
+    last.source = "live";
     return next;
   }
   if (!last || date > last.date) {
     next.push({
       date,
-      open: quote.open,
-      high: Math.max(quote.high, quote.price),
-      low: Math.min(quote.low, quote.price),
+      open,
+      high,
+      low,
       close: quote.price,
       source: "live",
     });
@@ -149,7 +156,7 @@ export const JD_QUOTE_LABEL = "浙商积存金(京东)";
 /** 浙商积存金(京东)实时价，经同源 /api/jd-quote 转发（JD 接口不支持浏览器跨域）。非官方接口，失败返回 null。 */
 async function loadJdQuote(): Promise<{ price: number; time: string; prevClose: number | null } | null> {
   try {
-    const response = await fetch("/api/jd-quote", { cache: "no-store" });
+    const response = await fetch(apiUrl("/api/jd-quote"), { cache: "no-store" });
     if (!response.ok) return null;
     const data = asRecord(asRecord(asRecord(await response.json())?.resultData)?.datas);
     const price = asNumber(data?.price);
@@ -181,7 +188,18 @@ export async function loadMarket(settings: Settings): Promise<MarketSnapshot> {
   const record = asRecord(payload);
   if (jd && record) {
     const base = asRecord(record.quote) ?? {};
-    record.quote = { ...base, price: jd.price, time: jd.time, ...(jd.prevClose != null ? { prevClose: jd.prevClose } : {}) };
+    const prevClose = jd.prevClose ?? asNumber(base.prevClose);
+    // 积存金实时价只有最新价+昨收：当日开≈昨收，高低先按价/昨收展开，再由 applyQuote 并入日线
+    const open = prevClose != null && prevClose > 0 ? prevClose : (asNumber(base.open) ?? jd.price);
+    record.quote = {
+      ...base,
+      price: jd.price,
+      time: jd.time,
+      open,
+      high: Math.max(jd.price, open),
+      low: Math.min(jd.price, open),
+      ...(prevClose != null ? { prevClose } : {}),
+    };
     return normalizeFeed(record, JD_QUOTE_LABEL);
   }
   return normalizeFeed(payload, "自定义接口");

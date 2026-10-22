@@ -1,6 +1,13 @@
 import { DEMO_NEWS, normalizeNews, type NewsItem } from "./news.ts";
 import { endpointError } from "./feed.ts";
-import type { Settings } from "./storage.ts";
+import { apiUrl, type Settings } from "./storage.ts";
+
+/** Relative /api/* must hit CloudBase HTTPSERVICE, not the webapps SPA host. */
+function resolveNewsEndpoint(endpoint: string): string {
+  const trimmed = endpoint.trim();
+  if (trimmed.startsWith("/api/")) return apiUrl(trimmed);
+  return trimmed;
+}
 
 const NEWS_KEY = "jinjian.news.v1";
 
@@ -31,7 +38,7 @@ export async function loadNews(settings: Settings): Promise<{ items: NewsItem[];
   const headers: Record<string, string> = {};
   const key = newsApiKey();
   if (key) headers.Authorization = `Bearer ${key}`;
-  const response = await fetch(settings.newsEndpoint.trim(), { cache: "no-store", headers });
+  const response = await fetch(resolveNewsEndpoint(settings.newsEndpoint), { cache: "no-store", headers });
   if (!response.ok) throw new Error(`消息接口返回 ${response.status}。`);
   const text = await response.text();
   let payload: unknown;
