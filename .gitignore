@@ -5,3 +5,4 @@ node_modules/
 deploy-body*.json
 deploy-files.json
 *.log
+*.xor
