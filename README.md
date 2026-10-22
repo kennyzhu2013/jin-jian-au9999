@@ -44,6 +44,19 @@ npx wrangler deploy worker.js
 
 Worker 路由：`/api/quote` 或 `/quote`。
 
+## CloudBase 线上路由（SCF）
+
+线上 CloudBase 环境的这几条路由由 `cloudfunctions/` 里的云函数提供。本仓库的 Vercel `api/`（`api/quote.js`、`api/news.js`）和 Cloudflare `worker.js` 仍是原来的部署路径，互不替换。
+
+| 路由 | 云函数 |
+|------|--------|
+| `/api/jd-quote` | `cloudfunctions/jd-quote` |
+| `/api/news` | `cloudfunctions/jinjian-news` |
+| `/api/last-*` | `cloudfunctions/jinjian-snapshot` |
+| `/api/settings` | `cloudfunctions/jinjian-settings` |
+
+`cloudbase/migrations/*.sql` 是对应的 PostgreSQL 迁移（当前为 `jinjian_user_settings`）。天行密钥和腾讯云临时凭证只放在函数环境变量里，不要提交 `*.xor` 或密钥文件。
+
 ## 返回示例
 
 成功时 HTTP 200，形如：
