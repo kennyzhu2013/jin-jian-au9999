@@ -2,29 +2,13 @@ import type { Bar, MarketSnapshot, Quote } from "./types.ts";
 import { round2 } from "../lib/format.ts";
 
 /**
- * 2026-09-09 至 2026-10-09 的 OHLC 摘自公开的上海黄金交易所 Au99.99 日线表。
- * 更早的交易日用固定种子补齐，只为让均线有足够样本，界面会标明「演示补齐」。
- * 10 月 9 日之后没有继续编造，避免把休市或未核对的日子写成成交。
+ * 日线目标口径：浙商积存金(京东) 元/克，不是上金所 Au99.99。
+ * 历史 K 线为按现价附近补齐的演示日 OHLC（每根 = 一个交易日开高低收），
+ * 供均线/策略有足够样本；实时价由 /api/jd-quote 覆盖。
+ * 最近约 60 个交易日刻意压在 ~860–915，避免旧 Au99.99 摘录把 Y 轴拉到 ~970。
  */
-const PUBLISHED: Bar[] = [
-  { date: "2026-09-09", open: 950, high: 952.8, low: 941, close: 951.77, volume: 5370.9, source: "published" },
-  { date: "2026-09-10", open: 952, high: 957, low: 945.51, close: 952.99, volume: 4446.3, source: "published" },
-  { date: "2026-09-11", open: 946.5, high: 952, low: 929, close: 939.54, volume: 7187.08, source: "published" },
-  { date: "2026-09-14", open: 938.88, high: 950, low: 932.8, close: 932.8, volume: 6128.64, source: "published" },
-  { date: "2026-09-15", open: 956, high: 956, low: 920, close: 928.17, volume: 6890.52, source: "published" },
-  { date: "2026-09-16", open: 925, high: 938.59, low: 924.5, close: 936.75, volume: 5054.54, source: "published" },
-  { date: "2026-09-17", open: 937.5, high: 964, low: 924, close: 934.81, volume: 6143.82, source: "published" },
-  { date: "2026-09-18", open: 937, high: 948.9, low: 935.5, close: 947.09, volume: 5219.06, source: "published" },
-  { date: "2026-09-21", open: 944.5, high: 947.69, low: 937.5, close: 938.09, volume: 7106.98, source: "published" },
-  { date: "2026-09-22", open: 941.5, high: 951.5, low: 930, close: 931.98, volume: 6875.66, source: "published" },
-  { date: "2026-09-23", open: 932, high: 940, low: 932, close: 934, volume: 4696.64, source: "published" },
-  { date: "2026-09-24", open: 932, high: 935.78, low: 924.1, close: 926.01, volume: 5373.74, source: "published" },
-  { date: "2026-09-28", open: 915.1, high: 918, low: 899, close: 900.89, volume: 8733.26, source: "published" },
-  { date: "2026-09-29", open: 903, high: 903, low: 890, close: 897.53, volume: 11306.7, source: "published" },
-  { date: "2026-09-30", open: 899, high: 909, low: 897.5, close: 907.32, volume: 6722.32, source: "published" },
-  { date: "2026-10-08", open: 890.5, high: 896.3, low: 889, close: 892, volume: 14411.92, source: "published" },
-  { date: "2026-10-09", open: 892, high: 909, low: 888, close: 904.48, volume: 8690.32, source: "published" },
-];
+const ANCHOR_END = "2026-10-21";
+const ANCHOR_CLOSE = 888.45;
 
 const HOLIDAYS = new Set([
   "2026-05-01",
@@ -69,33 +53,61 @@ function mulberry32(seed: number): () => number {
   };
 }
 
-function synthesizeEarly(): Bar[] {
-  const days = businessDays("2026-05-06", "2026-09-08");
-  const rand = mulberry32(20261009);
-  const raw: number[] = [];
-  let price = 768;
-  for (let index = 0; index < days.length; index += 1) {
-    price += 0.62 + (rand() - 0.46) * 3.1;
-    raw.push(price);
+/** 形状：缓升 → 八月中高点 ~910 → 九月回落 → 十月落在 880–910。 */
+function shapeClose(index: number, total: number, rand: () => number): number {
+  const t = total <= 1 ? 1 : index / (total - 1);
+  let base: number;
+  if (t < 0.45) {
+    base = 805 + (t / 0.45) * 85;
+  } else if (t < 0.72) {
+    const u = (t - 0.45) / 0.27;
+    base = 890 + Math.sin(u * Math.PI) * 18;
+  } else {
+    const u = (t - 0.72) / 0.28;
+    base = 905 - u * 20;
   }
-  const target = 948.4;
-  const lastRaw = raw.at(-1) ?? target;
-  const gap = target - lastRaw;
-  const closes = raw.map((value, index) => round2(value + gap * (index / Math.max(raw.length - 1, 1))));
+  return base + (rand() - 0.5) * 4.2;
+}
+
+function synthesizeJdBars(): Bar[] {
+  const days = businessDays("2026-05-06", ANCHOR_END);
+  const rand = mulberry32(20261022);
+  const raw = days.map((_, index) => shapeClose(index, days.length, rand));
+  const lastRaw = raw.at(-1) ?? ANCHOR_CLOSE;
+  const gap = ANCHOR_CLOSE - lastRaw;
+  const closes = raw.map((value, index) =>
+    round2(value + gap * (index / Math.max(raw.length - 1, 1))),
+  );
 
   return days.map((date, index) => {
-    const close = closes[index] ?? target;
-    const prev = index === 0 ? close - 0.8 : (closes[index - 1] ?? close);
-    const open = round2(prev + (rand() - 0.5) * 1.5);
-    const wick = 1.1 + rand() * 2.2;
-    const high = round2(Math.max(open, close) + wick * (0.35 + rand()));
-    const low = round2(Math.min(open, close) - wick * (0.35 + rand()));
-    return { date, open, high, low, close, source: "synthetic" as const };
+    const close = closes[index] ?? ANCHOR_CLOSE;
+    const prev = index === 0 ? close - 0.6 : (closes[index - 1] ?? close);
+    const open = round2(prev + (rand() - 0.5) * 1.2);
+    const wick = 0.8 + rand() * 1.8;
+    let high = round2(Math.max(open, close) + wick * (0.25 + rand() * 0.7));
+    let low = round2(Math.min(open, close) - wick * (0.25 + rand() * 0.7));
+    // 最近约 60 根硬顶，避免演示噪声顶破 915
+    const nearEnd = index >= days.length - 60;
+    if (nearEnd) {
+      high = round2(Math.min(high, 914.5));
+      low = round2(Math.max(low, 868));
+      if (low > Math.min(open, close)) low = round2(Math.min(open, close) - 0.4);
+      if (high < Math.max(open, close)) high = round2(Math.max(open, close) + 0.4);
+    }
+    const late = index >= days.length - 20;
+    return {
+      date,
+      open,
+      high,
+      low,
+      close,
+      source: late ? ("published" as const) : ("synthetic" as const),
+    };
   });
 }
 
 export function buildDemoBars(): Bar[] {
-  const bars = [...synthesizeEarly(), ...PUBLISHED];
+  const bars = synthesizeJdBars();
   for (let index = 1; index < bars.length; index += 1) {
     const prev = bars[index - 1];
     const current = bars[index];
@@ -134,6 +146,6 @@ export function demoMarket(now = new Date()): MarketSnapshot {
 }
 
 export const PUBLISHED_RANGE = {
-  start: PUBLISHED[0]?.date ?? "",
-  end: PUBLISHED.at(-1)?.date ?? "",
+  start: buildDemoBars().find((bar) => bar.source === "published")?.date ?? ANCHOR_END,
+  end: ANCHOR_END,
 };

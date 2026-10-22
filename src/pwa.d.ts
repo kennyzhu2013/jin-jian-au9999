@@ -1,6 +1,7 @@
 interface ImportMetaEnv {
   readonly VITE_NEWS_API_URL?: string;
   readonly VITE_NEWS_API_KEY?: string;
+  readonly VITE_SETTINGS_API_URL?: string;
 }
 
 declare module "virtual:pwa-register" {

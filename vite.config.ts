@@ -91,6 +91,14 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 43123,
     strictPort: true,
+    proxy: {
+      // 本地开发：同源转发浙商积存金(京东)实时价（线上由 api/jd-quote.js 处理）
+      "/api/jd-quote": {
+        target: "https://api.jdjygold.com",
+        changeOrigin: true,
+        rewrite: () => "/gw2/generic/jrm/h5/m/stdLatestPrice?productSku=1961543816",
+      },
+    },
   },
   preview: {
     host: "0.0.0.0",
