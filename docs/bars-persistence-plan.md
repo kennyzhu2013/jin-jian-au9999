@@ -1,5 +1,7 @@
 # Au9999 历史日线本地保存与增量维护 — 实施方案
 
+> **现状：** `main` 的实时金价已经改为京东积存金（浙商积存金），服务端拉取 `stdLatestPrice`。见 `lib/jd-quote.mjs`、`api/quote.js`、`worker.js` 和 README。下文是更早的「极速 shgold + 上金所 Au99.99」日线方案，不再描述当前主路径。
+
 > 目标：少打上金所历史接口；接口挂了仍有可用 K 线；实时价继续走极速转发。  
 > 范围：`jinjian-quote-proxy`（服务端权威）+ 金鉴 PWA（端上兜底，可选二期）。  
 > 日期：2026-10-19（Asia/Shanghai）

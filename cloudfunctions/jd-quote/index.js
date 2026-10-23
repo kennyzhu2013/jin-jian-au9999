@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const https = require("https");
 
 const ENV_ID = "testgold-d6g8l28m85a3d21aa";
+// Keep in sync with lib/jd-quote.mjs (浙商积存金京东). This function also writes jinjian_last_snapshot.
 const JD_URL = "https://api.jdjygold.com/gw2/generic/jrm/h5/m/stdLatestPrice?productSku=1961543816";
 const SNAPSHOT_ID = "default";
 const JSON_HEADERS = {

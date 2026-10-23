@@ -1,6 +1,7 @@
 {
   "rewrites": [
     { "source": "/quote", "destination": "/api/quote" },
+    { "source": "/jd-quote", "destination": "/api/jd-quote" },
     { "source": "/news", "destination": "/api/news" }
   ]
 }

@@ -1,235 +1,159 @@
 #!/usr/bin/env node
 /**
- * Offline smoke test: jisu quote mapping + SGE Dailyhq bars mapping with fixtures.
- * No network, no real JISU_APPKEY.
+ * Offline smoke test: 京东积存金 datas → feed quote + today bar.
+ * No network. Optional live pull: node scripts/smoke-local.mjs --live
  */
 
-const SAMPLE_FEED = {
-  status: 0,
-  msg: "ok",
-  result: [
-    {
-      type: "AU99.99",
-      typename: "黄金9999",
-      price: "958.12",
-      openingprice: "952.00",
-      maxprice: "960.50",
-      minprice: "950.80",
-      lastclosingprice: "951.20",
-      updatetime: "2026-10-19 11:02:01",
+import {
+  JD_PRODUCT_SKU,
+  SOURCE_LABEL,
+  barFromQuote,
+  buildQuoteResponse,
+  fetchJdQuote,
+  mapJdDatasToQuote,
+  parseJdQuotePayload,
+} from "../lib/jd-quote.mjs";
+
+const EPOCH_MS = Date.UTC(2026, 9, 19, 3, 2, 1); // 2026-10-19 11:02:01+08:00
+
+const SAMPLE_JD = {
+  success: true,
+  resultCode: 0,
+  resultMsg: "成功",
+  channelEncrypt: 0,
+  resultData: {
+    status: "SUCCESS",
+    datas: {
+      productSku: JD_PRODUCT_SKU,
+      demode: false,
+      price: "862.41",
+      yesterdayPrice: "871.97",
+      upAndDownAmt: "-9.56",
+      upAndDownRate: "-1.10%",
+      time: String(EPOCH_MS),
+      id: 46381761,
     },
-    {
-      type: "AU99.95",
-      typename: "黄金9995",
-      price: "957.00",
-      openingprice: "951.00",
-      maxprice: "959.00",
-      minprice: "950.00",
-      lastclosingprice: "950.50",
-      updatetime: "2026-10-19 11:02:01",
-    },
-  ],
+  },
 };
 
-/** Fixture shaped like POST https://www.sge.com.cn/graph/Dailyhq → { time: [[date,open,close,low,high], ...] } */
-const SAMPLE_SGE_DAILYHQ = {
-  time: [
-    ["2026-04-01", 700.1, 705.2, 698.0, 706.5],
-    ["2026-10-15", 890.0, 895.5, 888.0, 897.0],
-    ["2026-10-16", 893.99, 901.57, 893.0, 902.0],
-    ["2026-05-01", 710.0, 712.0, 709.0, 713.0], // out of order on purpose
-  ],
-};
-
-function toNumber(v) {
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (v == null || v === "") return NaN;
-  const n = Number(String(v).trim());
-  return Number.isFinite(n) ? n : NaN;
-}
-
-function updatetimeToIso(updatetime) {
-  if (!updatetime || typeof updatetime !== "string") return null;
-  const s = updatetime.trim();
-  const m = s.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})/);
-  if (!m) return null;
-  return `${m[1]}T${m[2]}+08:00`;
-}
-
-function findAu9999(list) {
-  if (!Array.isArray(list)) return null;
-  return (
-    list.find((item) => {
-      if (!item || typeof item !== "object") return false;
-      const type = String(item.type ?? "").trim();
-      const typename = String(item.typename ?? "").trim();
-      return (
-        type === "AU99.99" ||
-        type === "AU9999" ||
-        typename === "AU9999" ||
-        typename === "AU99.99"
-      );
-    }) ?? null
-  );
-}
-
-function mapToQuote(item) {
-  const price = toNumber(item.price);
-  const open = toNumber(item.openingprice);
-  const high = toNumber(item.maxprice);
-  const low = toNumber(item.minprice);
-  const prevClose = toNumber(item.lastclosingprice);
-  const time = updatetimeToIso(item.updatetime);
-
-  if (
-    [price, open, high, low, prevClose].some((n) => Number.isNaN(n)) ||
-    !time
-  ) {
-    return null;
-  }
-
-  return {
-    price,
-    open,
-    high,
-    low,
-    prevClose,
-    time,
-  };
-}
-
-function mapSgeRowToBar(row) {
-  if (!Array.isArray(row) || row.length < 5) return null;
-  const dateRaw = row[0];
-  const date =
-    typeof dateRaw === "string"
-      ? dateRaw.trim().slice(0, 10)
-      : String(dateRaw ?? "").slice(0, 10);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
-
-  const open = toNumber(row[1]);
-  const close = toNumber(row[2]);
-  const low = toNumber(row[3]);
-  const high = toNumber(row[4]);
-  if ([open, high, low, close].some((n) => Number.isNaN(n))) return null;
-
-  return {
-    date,
-    open,
-    high,
-    low,
-    close,
-    source: "sge",
-  };
-}
-
-function mapSgeDailyhqToBars(dataJson, keep = 120) {
-  const rows = dataJson?.time;
-  if (!Array.isArray(rows) || rows.length === 0) return [];
-
-  const bars = [];
-  for (const row of rows) {
-    const bar = mapSgeRowToBar(row);
-    if (bar) bars.push(bar);
-  }
-
-  bars.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-
-  if (keep > 0 && bars.length > keep) {
-    return bars.slice(-keep);
-  }
-  return bars;
-}
-
-// --- quote mapping ---
-const item = findAu9999(SAMPLE_FEED.result);
-if (!item) {
-  console.error("FAIL: AU99.99 not found in sample fixture");
+function fail(message, extra) {
+  console.error(`FAIL: ${message}`);
+  if (extra !== undefined) console.error(extra);
   process.exit(1);
 }
 
-const quote = mapToQuote(item);
-if (!quote) {
-  console.error("FAIL: mapToQuote returned null");
-  process.exit(1);
-}
+const datas = parseJdQuotePayload(SAMPLE_JD);
+if (!datas) fail("parseJdQuotePayload returned null");
 
+const quote = mapJdDatasToQuote(datas);
 const expectedQuote = {
-  price: 958.12,
-  open: 952.0,
-  high: 960.5,
-  low: 950.8,
-  prevClose: 951.2,
+  price: 862.41,
+  open: 871.97,
+  high: 871.97,
+  low: 862.41,
+  prevClose: 871.97,
   time: "2026-10-19T11:02:01+08:00",
+  sourceLabel: SOURCE_LABEL,
 };
-
 if (JSON.stringify(quote) !== JSON.stringify(expectedQuote)) {
-  console.error("FAIL: quote mapping mismatch");
-  console.error("got:", JSON.stringify(quote, null, 2));
-  console.error("expected:", JSON.stringify(expectedQuote, null, 2));
-  process.exit(1);
+  fail("quote mapping mismatch", {
+    got: quote,
+    expected: expectedQuote,
+  });
 }
 
-// --- bars mapping (SGE row order: date, open, close, low, high) ---
-const bars = mapSgeDailyhqToBars(SAMPLE_SGE_DAILYHQ, 120);
-const expectedBars = [
-  {
-    date: "2026-04-01",
-    open: 700.1,
-    high: 706.5,
-    low: 698.0,
-    close: 705.2,
-    source: "sge",
-  },
-  {
-    date: "2026-05-01",
-    open: 710.0,
-    high: 713.0,
-    low: 709.0,
-    close: 712.0,
-    source: "sge",
-  },
-  {
-    date: "2026-10-15",
-    open: 890.0,
-    high: 897.0,
-    low: 888.0,
-    close: 895.5,
-    source: "sge",
-  },
-  {
-    date: "2026-10-16",
-    open: 893.99,
-    high: 902.0,
-    low: 893.0,
-    close: 901.57,
-    source: "sge",
-  },
-];
-
-if (JSON.stringify(bars) !== JSON.stringify(expectedBars)) {
-  console.error("FAIL: bars mapping mismatch");
-  console.error("got:", JSON.stringify(bars, null, 2));
-  console.error("expected:", JSON.stringify(expectedBars, null, 2));
-  process.exit(1);
-}
-
-const out = {
-  symbol: "Au99.99",
-  currency: "CNY",
-  unit: "克",
-  note: "极速数据实时 · 上金所日线",
-  quote,
-  bars,
+const bar = barFromQuote(quote);
+const expectedBar = {
+  date: "2026-10-19",
+  open: 871.97,
+  high: 871.97,
+  low: 862.41,
+  close: 862.41,
+  source: "live",
 };
+if (JSON.stringify(bar) !== JSON.stringify(expectedBar)) {
+  fail("bar mapping mismatch", { got: bar, expected: expectedBar });
+}
 
-console.log("Mapped AU99.99 quote + SGE bars (sample-feed style):");
-console.log(JSON.stringify(out, null, 2));
+const body = buildQuoteResponse(datas);
+if (!body || body.sourceLabel !== SOURCE_LABEL || body.productSku !== JD_PRODUCT_SKU) {
+  fail("buildQuoteResponse missing sourceLabel or productSku", body);
+}
+if (body.symbol !== "Au99.99" || body.currency !== "CNY" || body.unit !== "克") {
+  fail("feed keys changed", body);
+}
+if (!Array.isArray(body.bars) || body.bars.length !== 1) {
+  fail("expected a single today bar", body && body.bars);
+}
+
+if (parseJdQuotePayload({ success: false, resultData: { datas: { price: "1" } } })) {
+  fail("success:false should not parse");
+}
+if (parseJdQuotePayload({ success: true, resultData: { status: "SUCCESS", datas: {} } })) {
+  fail("missing price should not parse");
+}
+
+const priceOnly = mapJdDatasToQuote({ price: 900, time: EPOCH_MS }, EPOCH_MS);
+if (
+  !priceOnly ||
+  priceOnly.open !== 900 ||
+  priceOnly.high !== 900 ||
+  priceOnly.low !== 900 ||
+  priceOnly.prevClose !== 900
+) {
+  fail("missing yesterdayPrice should fall back to price", priceOnly);
+}
+
+console.log("Mapped 浙商积存金(京东) quote:");
+console.log(JSON.stringify(body, null, 2));
 console.log("");
 console.log(
-  "Quote: price←price, open←openingprice, high←maxprice, low←minprice, prevClose←lastclosingprice; updatetime → ISO+08:00"
+  "Quote: price←datas.price, prevClose/open←yesterdayPrice, high/low←max/min(price, yesterdayPrice); time epoch → ISO+08:00; sourceLabel←浙商积存金(京东)"
 );
-console.log(
-  "Bars: SGE [date,open,close,low,high] → {date,open,high,low,close,source:'sge'}; sorted asc; volume omitted"
-);
-console.log("OK: matches expected quote + bars mapping");
+console.log("Bars: one today bar {date,open,high,low,close,source:'live'} from that quote. No 极速 / 上金所.");
+const down = await fetchJdQuote(async () => {
+  throw new Error("down");
+});
+if (down.ok || down.httpOk || !String(down.error).includes("down")) {
+  fail("fetch failure should surface", down);
+}
+
+const httpFail = await fetchJdQuote(async () => ({
+  ok: false,
+  status: 503,
+  text: async () => "{\"success\":false}",
+}));
+if (httpFail.httpOk || httpFail.ok || httpFail.text !== "{\"success\":false}") {
+  fail("HTTP error should keep upstream text and not count as ok", httpFail);
+}
+
+const emptyPrice = await fetchJdQuote(async () => ({
+  ok: true,
+  status: 200,
+  text: async () => JSON.stringify({ success: false, resultMsg: "no" }),
+}));
+if (!emptyPrice.httpOk || emptyPrice.ok || emptyPrice.body) {
+  fail("HTTP 200 without a price stays raw-only", emptyPrice);
+}
+
+console.log("OK: matches expected JD quote mapping");
+
+if (process.argv.includes("--live")) {
+  const live = await fetchJdQuote();
+  if (!live.ok || !live.body) fail(live.error || "live pull failed", live.text && live.text.slice(0, 300));
+  const q = live.body.quote;
+  if (!(q.price > 0) || q.sourceLabel !== SOURCE_LABEL) fail("live quote missing price or sourceLabel", q);
+  if (String(live.body.productSku) !== JD_PRODUCT_SKU) fail("live productSku mismatch", live.body.productSku);
+  console.log("");
+  console.log("LIVE OK:", JSON.stringify({
+    sourceLabel: live.body.sourceLabel,
+    productSku: live.body.productSku,
+    price: q.price,
+    prevClose: q.prevClose,
+    open: q.open,
+    high: q.high,
+    low: q.low,
+    time: q.time,
+    barDate: live.body.bars[0] && live.body.bars[0].date,
+  }));
+}
