@@ -53,6 +53,8 @@ HTTP 服务主机形如 `testgold-….app.tcloudbase.com`。快照函数请求�
 
 这些文件不是 CloudBase 线上路由，但实时金价已经和云函数用同一个京东上游。行情接口不需要 `JISU_APPKEY`。
 
+根目录 `package.json` 设了 `"type": "module"`。Vercel 的 Node 运行时因此把 `api/quote.js` 和 `api/jd-quote.js` 当原生 ESM，不再把 `import "../lib/jd-quote.mjs"` 编成 CommonJS 的 `require()`（那样会在调用时 `ERR_REQUIRE_ESM`，接口 500）。`api/news.js` 同样是 ESM（`export default`）。云函数目录各自有 `package.json`，没有 `"type"`，仍是 CommonJS。
+
 | 文件 | 路由 | 说明 |
 |------|------|------|
 | `lib/jd-quote.mjs` | — | 京东 `stdLatestPrice` 拉取，以及 feed 映射 |
