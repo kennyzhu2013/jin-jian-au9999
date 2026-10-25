@@ -4,6 +4,8 @@
  * No network. Optional live pull: node scripts/smoke-local.mjs --live
  */
 
+import quoteHandler from "../api/quote.js";
+import jdQuoteHandler from "../api/jd-quote.js";
 import {
   JD_PRODUCT_SKU,
   SOURCE_LABEL,
@@ -134,6 +136,10 @@ const emptyPrice = await fetchJdQuote(async () => ({
 }));
 if (!emptyPrice.httpOk || emptyPrice.ok || emptyPrice.body) {
   fail("HTTP 200 without a price stays raw-only", emptyPrice);
+}
+
+if (typeof quoteHandler !== "function" || typeof jdQuoteHandler !== "function") {
+  fail("api/quote.js and api/jd-quote.js must load as ESM default handlers");
 }
 
 console.log("OK: matches expected JD quote mapping");

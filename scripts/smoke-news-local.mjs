@@ -3,10 +3,25 @@
  * Offline smoke for /api/news mapping, gold filter, merge, and handler paths.
  * No network. Uses a fake fetch and a non-production key.
  */
-import { createRequire } from "module";
+import handler, {
+  ctimeToIso,
+  isGoldRelated,
+  itemsFromList,
+  mergeNewsItems,
+  parseBackfillWords,
+  clearNewsCache,
+  resolveTianApiKey,
+} from "../api/news.js";
 
-const require = createRequire(import.meta.url);
-const news = require("../api/news.js");
+const news = Object.assign(handler, {
+  ctimeToIso,
+  isGoldRelated,
+  itemsFromList,
+  mergeNewsItems,
+  parseBackfillWords,
+  clearNewsCache,
+  resolveTianApiKey,
+});
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);

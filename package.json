@@ -1,4 +1,5 @@
 {
   "name": "jinjian-quote-proxy",
-  "private": true
+  "private": true,
+  "type": "module"
 }

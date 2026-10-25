@@ -472,12 +472,14 @@ async function handler(req, res) {
   await handleMulti(res, key, { num, pages, words });
 }
 
-module.exports = handler;
-module.exports.ctimeToIso = ctimeToIso;
-module.exports.isGoldRelated = isGoldRelated;
-module.exports.mapItem = mapItem;
-module.exports.mergeNewsItems = mergeNewsItems;
-module.exports.itemsFromList = itemsFromList;
-module.exports.parseBackfillWords = parseBackfillWords;
-module.exports.clearNewsCache = clearNewsCache;
-module.exports.resolveTianApiKey = resolveTianApiKey;
+export default handler;
+export {
+  ctimeToIso,
+  isGoldRelated,
+  mapItem,
+  mergeNewsItems,
+  itemsFromList,
+  parseBackfillWords,
+  clearNewsCache,
+  resolveTianApiKey,
+};
